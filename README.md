@@ -4,7 +4,7 @@ DownScoped credentials allows for exchanging a parent Credential's  `access_toke
 
 For example, if the parent Credential that represents user Alice has access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used against Bucket `A` and `C`.
 
->> **Warning**:  `(2/24/20)`: The following describes the usage _alpha_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is open but not documented yet.  This article is intended to demonstrate this new capability and solicit feedback on enhancements users would like to see (for that, please just leave an issue/FR on github [here](https://github.com/salrashid123/downscoped_token) )
+>> **Warning**:  `(2/24/20)`: The following describes the _alpha_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is open but not documented yet.  This article is intended to demonstrate this new capability and solicit feedback on enhancements users would like to see (for that, please just leave an issue/FR on github [here](https://github.com/salrashid123/downscoped_token) )
 
 DownScoped tokens are normally used in a tokenbroker/exchange service where you can mint a new restricted token to hand to a client. The sample usage and implementations below shows how to generate a downscoped token, extract the raw access_token, and
  then inject the raw token in another TokenSource.
@@ -119,7 +119,7 @@ curl -s -H "Authorization: Bearer $NEW_TOKEN_1"  -o /dev/null  -w "%{http_code}\
 
 At the moment, no official `google-auth-*` library supports.  However, i've written up the following implementations which behave as if its just another credential type for any google cloud client libraries (well..just GCS at the moment)
 
-* golang: [github.com/salrashid123/oauth2/google DownScopedTokenSource](https://github.com/salrashid123/oauth2#usage-downscoped)
+#### golang: [github.com/salrashid123/oauth2/google DownScopedTokenSource](https://github.com/salrashid123/oauth2#usage-downscoped)
 
   For example:
 
@@ -208,7 +208,9 @@ func main() {
 }
 ```
 
-* Java
+#### Java
+
+see `java/src/main/java/com/google/auth/oauth2/DownScopedCredentials.java`
 
 ```java
 package com.test;
