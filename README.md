@@ -1,14 +1,14 @@
 ## Using Credential Access Boundary (DownScoped) Tokens
 
 DownScoped credentials allows for exchanging a parent Credential's  `access_token` for _another_ `access_token` that has permissions on a limited set  of resources the parent token originally had.
- 
+
 For example, if the parent Credential that represents user Alice has access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used against Bucket `A` and `C`.
 
 >> **Warning**:  `(2/24/20)`: The following describes the usage _alpha_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is open but not documented yet.  This article is intended to demonstrate this new capability and solicit feedback on enhancements users would like to see (for that, please just leave an issue/FR on github [here](https://github.com/salrashid123/downscoped_token) )
 
 DownScoped tokens are normally used in a tokenbroker/exchange service where you can mint a new restricted token to hand to a client. The sample usage and implementations below shows how to generate a downscoped token, extract the raw access_token, and
  then inject the raw token in another TokenSource.
- 
+
 ** NOTE:**
 
 * DownScoped tokens currently only works for GCS buckets and cannot be applied yet at the bucket+path or object level.
@@ -290,10 +290,11 @@ Note, if you use these, the static `access_token` will not get refreshed automat
 
 ### Usecase: TokenBroker
 
-A developer or workload (the requester) requests credentials to get access to certain GCP resources. 
-The broker system identifies the service account that has access to the requested resources and gets a credential for that service account.
-Before handing off the credentials to the requestor, the broker system restricts the permissions on the credential to only what the token requester needs access to, by applying a Credential Access Boundary on the service account credentials by calling the CAB API.
-The broker system hands the downscoped credentials to the requester. The requester can now use those credentials to access GCP resources
+1. A developer or workload (the requester) requests credentials to get access to certain GCP resources.
+2. The broker system identifies the service account that has access to the requested resources and gets a credential for that service account.
+3. Before handing off the credentials to the requestor, the broker system restricts the permissions on the credential to only what the token requester needs access to, by applying a `Credential Access Boundary` on the service account credentials by calling the CAB API.
+4. The broker system hands the downscoped credentials to the requester.
+5. The requester can now use those credentials to access GCP resources
 
 This release has the following restrictions:
 
@@ -304,4 +305,3 @@ This release has the following restrictions:
 
 
 Thats it...this is just an alpha capability...do not use this in production yet!.  Again, the intent of this article is to get feedback...please add in any comments to the repo here [https://github.com/salrashid123/downscoped_token](https://github.com/salrashid123/downscoped_token):
-
