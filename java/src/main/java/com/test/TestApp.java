@@ -52,8 +52,12 @@ public class TestApp {
 
                DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
 
+               // Normally, you give the token back directly to a client to use
+               // In the following, the AccessToken's value is used to generate a new
+               // GoogleCredential object at the client:
                // AccessToken tok = dc.refreshAccessToken();
                // System.out.println(tok.getTokenValue());
+               // GoogleCredentials sts = GoogleCredentials.create(tok);
 
                Storage storage = StorageOptions.newBuilder().setCredentials(dc).build().getService();
                Page<Blob> blobs = storage.list(bucketName);

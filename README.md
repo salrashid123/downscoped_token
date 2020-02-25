@@ -1,8 +1,8 @@
 ## Using Credential Access Boundary (DownScoped) Tokens
 
-DownScoped credentials allows for exchanging a parent Credential's  `access_token` for _another_ `access_token` that has permissions on a limited set  of resources the parent token originally had.
+`Credential Access Boundary` is a policy language that you can use to downscope the accessing power of your GCP short-lived credentials. You can define a Credential Access Boundary that specifies which resources the short-lived credential can access, as well as an upper bound on the permissions that are available on each resource
 
-For example, if the parent Credential that represents user Alice has access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used against Bucket `A` and `C`.
+For example, if the parent Credential that represents user Alice has Read/Write access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used for Read against Bucket `A` and `C`.
 
 >> **Warning**:  `(2/24/20)`: The following describes the _alpha_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is open but not documented yet.  This article is intended to demonstrate this new capability and solicit feedback on enhancements users would like to see (for that, please just leave an issue/FR on github [here](https://github.com/salrashid123/downscoped_token) )
 
@@ -11,7 +11,7 @@ DownScoped tokens are normally used in a tokenbroker/exchange service where you 
 
 ** NOTE:**
 
-* DownScoped tokens currently only works for GCS buckets and cannot be applied yet at the bucket+path or object level.
+* DownScoped tokens currently only works for GCS buckets and cannot be applied yet at the bucket+prefix or object level.
 * The GCS bucket must be enabled with [Uniform bucket-level access](https://cloud.google.com/storage/docs/uniform-bucket-level-access
 * Supported credentials: The only supported type of credential in Credential Access Boundary is OAuth2.0 access token. In the future, more credential types like [JSON Web Token](https://medium.com/google-cloud/faster-serviceaccount-authentication-for-google-cloud-platform-apis-f1355abc14b2) will be supported.
 
@@ -56,7 +56,7 @@ As an example, the following would the token to just `objectViewer` on `BUCKET_2
 
 ### Exchange the token
 
-You now need to transmit the original `access_token` and the boundary rule to a google token-exchange endpoint: `https://securetoken.googleapis.com/v1alpha2/identitybindingtoken`.  The response JSON will return a new token if the policy file is well formed.  
+You now need to transmit the original `access_token` and the boundary rule to a google token-exchange endpoint: `https://securetoken.googleapis.com/v1beta1/identitybindingtoken`.  The response JSON will return a new token if the policy file is well formed.  
 
 
 ### Usage: curl
@@ -101,7 +101,7 @@ export TOKEN=`gcloud auth application-default print-access-token`
 (the following command uses [jq](https://stedolan.github.io/jq/download/) to parse the response):
 
 ```bash
-NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v1alpha2/identitybindingtoken -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "access_boundary=$(cat access_boundary_1.json)" | jq -r '.access_token'`
+NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v1beta1/identitybindingtoken -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "access_boundary=$(cat access_boundary_1.json)" | jq -r '.access_token'`
 ```
 
 5. Use downscoped token
@@ -183,7 +183,33 @@ func main() {
 		},
 	)
 
-	// Using google-cloud library
+	// Normally, you give the token back directly to a client to use
+	// In the following tok.AccessToken is applied to a non-refreshable StaticTokenSource
+	// which can be used with the storageClient
+	//
+	// tok, err := downScopedTokenSource.Token()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// log.Printf("Downscoped Token: %v\n", tok.AccessToken)
+	// sts := oauth2.StaticTokenSource(tok)
+
+	// To use directly in a client
+
+	// client := &http.Client{
+	// 	Transport: &oauth2.Transport{
+	// 		Source: sts,
+	// 	},
+	// }
+
+	// url := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o", bucketName)
+	// resp, err := client.Get(url)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// log.Printf("Response: %v", resp.Status)
+
+	// or with google-cloud library
 
 	storageClient, err := storage.NewClient(ctx, option.WithTokenSource(downScopedTokenSource))
 	if err != nil {
@@ -265,7 +291,14 @@ public class TestApp {
                ab.addAvailablePermission("inRole:roles/storage.objectViewer");
                alist.add(ab);
 
-               DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
+			   DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
+			   
+			   // Normally, you give the token back directly to a client to use
+			   // In the following, the AccessToken's value is used to generate a new
+			   // GoogleCredential object at the client:
+			   // AccessToken tok = dc.refreshAccessToken();
+               // System.out.println(tok.getTokenValue());
+               // GoogleCredentials sts = GoogleCredentials.create(tok);
 
                Storage storage = StorageOptions.newBuilder().setCredentials(dc).build().getService();
                Page<Blob> blobs = storage.list(bucketName);

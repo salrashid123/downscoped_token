@@ -57,18 +57,22 @@ func main() {
 		},
 	)
 
+	// Normally, you give the token back directly to a client to use
+	// In the following tok.AccessToken is applied to a non-refreshable StaticTokenSource
+	// which can be used with the storageClient
+	//
 	// tok, err := downScopedTokenSource.Token()
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-
 	// log.Printf("Downscoped Token: %v\n", tok.AccessToken)
+	// sts := oauth2.StaticTokenSource(tok)
 
-	// stc := oauth2.StaticTokenSource(tok)
+	// To use directly in a client
 
 	// client := &http.Client{
 	// 	Transport: &oauth2.Transport{
-	// 		Source: stc,
+	// 		Source: sts,
 	// 	},
 	// }
 
@@ -79,7 +83,7 @@ func main() {
 	// }
 	// log.Printf("Response: %v", resp.Status)
 
-	// Using google-cloud library
+	// or with google-cloud library
 
 	storageClient, err := storage.NewClient(ctx, option.WithTokenSource(downScopedTokenSource))
 	if err != nil {
