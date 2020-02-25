@@ -62,48 +62,48 @@ import com.google.gson.Gson;
  * DownScoped credentials allows for exchanging a parent Credential's
  * access_token for another access_token that has permissions on a limited set
  * of resources the parent token originally had.
- * 
+ *
  * For example, if the parent Credential that represents user Alice has access
  * to GCS buckets A, B, C, you can exchange the Alice's credential for another
  * credential that still identifies Alice but can only be used against Bucket A
  * and C.
- * 
+ *
  * DownScoped tokens currently only works for GCS resources.
- * 
+ *
  * ** NOTE:** DownScoped tokens currently only works for GCS buckets and cannot
  * be applied (yet) at the bucket+path or object level. The GCS bucket must be
  * enabled with [Uniform bucket-level
  * access](https://cloud.google.com/storage/docs/uniform-bucket-level-access
- * 
+ *
  * DownScoped tokens are normally used in a tokenbroker/exchange service where
  * you can mint a new restricted token to hand to a client. The sample below
  * shows how to generate a downscoped token, extract the raw access_token, and
  * then inject the raw token in another TokenSource (instead of just using the
  * DownScopedToken as the TokenSource directly in the storageClient.).
- * 
- * 
+ *
+ *
  * The following shows how to exchange a root credential for a downscoped
  * credential that can only be used as roles/storage.objectViewer against GCS
  * bucketA.
- * 
- * 
+ *
+ *
  * <pre>
  * String bucketName = "bucketA";
- * 
+ *
  * GoogleCredentials sourceCredentials = GoogleCredentials.getApplicationDefault();
- * 
+ *
  * List<DownScopedCredentials.AccessBoundaryRule> alist = new ArrayList<DownScopedCredentials.AccessBoundaryRule>();
- * 
+ *
  * DownScopedCredentials.AccessBoundaryRule ab = new DownScopedCredentials.AccessBoundaryRule();
  * ab.setAvailableResource("//storage.googleapis.com/projects/_/buckets/" + bucketName);
  * ab.addAvailablePermission("inRole:roles/storage.objectViewer");
  * alist.add(ab);
- * 
+ *
  * DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
- * 
+ *
  * // AccessToken tok = dc.refreshAccessToken();
  * // System.out.println(tok.getTokenValue());
- * 
+ *
  * Storage storage = StorageOptions.newBuilder().setCredentials(dc).build().getService();
  * Page<Blob> blobs = storage.list(bucketName);
  * for (Blob blob : blobs.iterateAll()) {
@@ -191,19 +191,13 @@ public class DownScopedCredentials extends GoogleCredentials {
     r.put("accessBoundaryRules", this.accessBoundaryRules);
 
     String jsonPayload;
-    // TODO: convert the object to json string somehow, either:
-
-    // ***********************
     Gson gson = new Gson();
     jsonPayload = gson.toJson(r);
-    System.out.println("Using com.google.gson.Gson: " + jsonPayload);
 
     // ObjectMapper objectMapper = new ObjectMapper();
     // jsonPayload = objectMapper.writeValueAsString(r);
     // System.out.println("Using com.fasterxml.jackson.databind.ObjectMapper : " +
     // jsonPayload);
-
-    // *************************
 
     Map<String, String> params = new HashMap<>();
     params.put("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange");
@@ -243,9 +237,8 @@ public class DownScopedCredentials extends GoogleCredentials {
     if (responseData.containsKey("expires_in")) {
       cal.add(Calendar.SECOND, ((BigDecimal) responseData.get("expires_in")).intValue());
     } else {
-
       GenericUrl genericUrl = new GenericUrl(TOKEN_INFO_ENDPOINT);
-      genericUrl.put("access_token", access_token);
+      genericUrl.put("access_token", tok.getTokenValue());
       HttpRequest tokenRequest = requestFactory.buildGetRequest(genericUrl);
       tokenRequest.setParser(parser);
       HttpResponse tokenResponse = tokenRequest.execute();
@@ -254,7 +247,7 @@ public class DownScopedCredentials extends GoogleCredentials {
       }
       responseData = tokenResponse.parseAs(GenericData.class);
       tokenResponse.disconnect();
-      cal.add(Calendar.SECOND, ((BigDecimal) responseData.get("expires_in")).intValue());
+      cal.add(Calendar.SECOND, Integer.parseInt(responseData.get("expires_in").toString()));
     }
     return new AccessToken(access_token, cal.getTime());
   }
