@@ -291,12 +291,12 @@ public class TestApp {
                ab.addAvailablePermission("inRole:roles/storage.objectViewer");
                alist.add(ab);
 
-			   DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
-			   
-			   // Normally, you give the token back directly to a client to use
-			   // In the following, the AccessToken's value is used to generate a new
-			   // GoogleCredential object at the client:
-			   // AccessToken tok = dc.refreshAccessToken();
+               DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
+
+               // Normally, you give the token back directly to a client to use
+               // In the following, the AccessToken's value is used to generate a new
+               // GoogleCredential object at the client:
+               // AccessToken tok = dc.refreshAccessToken();
                // System.out.println(tok.getTokenValue());
                // GoogleCredentials sts = GoogleCredentials.create(tok);
 
