@@ -138,7 +138,9 @@ public class DownScopedCredentials extends GoogleCredentials {
 
   private static final long serialVersionUID = -2133257318957488431L;
   private static final String CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
-  private static final String IDENTITY_TOKEN_ENDPOINT = "https://securetoken.googleapis.com/v1beta1/identitybindingtoken";
+  private static final String IDENTITY_TOKEN_ENDPOINT = "https://securetoken.googleapis.com/v1alpha2/identitybindingtoken";
+  //private static final String IDENTITY_TOKEN_ENDPOINT = "https://securetoken.googleapis.com/v2beta1/token";
+  
   private static final String TOKEN_INFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/tokeninfo";
 
   private GoogleCredentials sourceCredentials;

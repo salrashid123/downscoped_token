@@ -56,8 +56,9 @@ As an example, the following would the token to just `objectViewer` on `BUCKET_2
 
 ### Exchange the token
 
-You now need to transmit the original `access_token` and the boundary rule to a google token-exchange endpoint: `https://securetoken.googleapis.com/v1beta1/identitybindingtoken`.  The response JSON will return a new token if the policy file is well formed.  
+You now need to transmit the original `access_token` and the boundary rule to a google token-exchange endpoint: `https://securetoken.googleapis.com/v1alpha2/identitybindingtoken`.  The response JSON will return a new token if the policy file is well formed.  
 
+>> Note, the endpoint for the exchange will later change to ` https://securetoken.googleapis.com/v2beta1/token`
 
 ### Usage: curl
 
@@ -101,7 +102,7 @@ export TOKEN=`gcloud auth application-default print-access-token`
 (the following command uses [jq](https://stedolan.github.io/jq/download/) to parse the response):
 
 ```bash
-NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v1beta1/identitybindingtoken -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "access_boundary=$(cat access_boundary_1.json)" | jq -r '.access_token'`
+NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v1alpha2/identitybindingtoken -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "access_boundary=$(cat access_boundary_1.json)" | jq -r '.access_token'`
 ```
 
 5. Use downscoped token
@@ -117,7 +118,11 @@ curl -s -H "Authorization: Bearer $NEW_TOKEN_1"  -o /dev/null  -w "%{http_code}\
 
 ### Implementations
 
-At the moment, no official `google-auth-*` library supports.  However, i've written up the following implementations which behave as if its just another credential type for any google cloud client libraries (well..just GCS at the moment)
+At the moment, no official `google-auth-*` library supports this capability.  However, i've written up the implementations in the following languages which behave as if its just another credential type for any google cloud client libraries (well..just GCS at the moment).
+
+- `golang`:  Use as `github.com/salrashid123/oauth2/google/DownScopedTokenSource`
+- `java`:  Use as `com/google/auth/oauth2/DownScopedCredentials`
+- `python`: Use as `google/auth/downscoped_credentials`
 
 #### golang: [github.com/salrashid123/oauth2/google DownScopedTokenSource](https://github.com/salrashid123/oauth2#usage-downscoped)
 
@@ -312,6 +317,50 @@ public class TestApp {
      }
 
 }
+```
+
+#### Python
+
+see `python/google/auth/downscoped_credentials.py`
+
+
+```python
+import google.auth
+from google.oauth2 import service_account
+from google.cloud import storage
+
+from google.auth import downscoped_credentials
+
+bucket_name = "your_bucket"
+
+svcAccountFile = "/path/to/svc_account.json"
+target_scopes = [
+    'https://www.googleapis.com/auth/devstorage.read_only']
+
+source_credentials = (
+    service_account.Credentials.from_service_account_file(
+        svcAccountFile,
+        scopes=target_scopes))
+
+json_document = {
+	"accessBoundaryRules" : [
+	  {
+		"availableResource" : "//storage.googleapis.com/projects/_/buckets/" + bucket_name,
+		"availablePermissions": ["inRole:roles/storage.objectViewer"]
+	  }
+	]
+}
+
+# or use default credentials
+source_credentials, project_id = google.auth.default()
+
+dc = downscoped_credentials.Credentials(source_credentials=source_credentials,access_boundary_rules=json_document)
+
+storage_client = storage.Client(credentials=dc)
+blobs = storage_client.list_blobs(bucket_name)
+
+for blob in blobs:
+  print(blob.name)
 ```
 
 
