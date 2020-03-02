@@ -13,7 +13,7 @@ DownScoped tokens are normally used in a tokenbroker/exchange service where you 
 
 * DownScoped tokens currently only works for GCS buckets and cannot be applied yet at the bucket+prefix or object level.
 * The GCS bucket must be enabled with [Uniform bucket-level access](https://cloud.google.com/storage/docs/uniform-bucket-level-access
-* Supported credentials: The only supported type of credential in Credential Access Boundary is OAuth2.0 access token. In the future, more credential types like [JSON Web Token](https://medium.com/google-cloud/faster-serviceaccount-authentication-for-google-cloud-platform-apis-f1355abc14b2) will be supported.
+* Supported credentials: The only supported type of credential in Credential Access Boundary is OAuth2.0 access token.
 
 ### Defining a boundary rule:
 
