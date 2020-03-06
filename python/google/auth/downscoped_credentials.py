@@ -60,8 +60,7 @@ from google.auth.credentials import AnonymousCredentials
 import google.auth.transport.requests
 import requests
 
-#_STS_ENDPOINT = "https://securetoken.googleapis.com/v2beta1/token"
-_STS_ENDPOINT = "https://securetoken.googleapis.com/v1alpha2/identitybindingtoken"
+_STS_ENDPOINT = "https://securetoken.googleapis.com/v2beta1/token"
 
 _REFRESH_ERROR = "Unable to acquire downscoped credentials"
 

@@ -8,6 +8,6 @@ require (
 	github.com/google/go-tpm v0.2.0 // indirect
 	github.com/hashicorp/vault/api v1.0.4 // indirect
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
-	github.com/salrashid123/oauth2 v0.0.0-20200228171047-f5f65a4c81cd // indirect
-	google.golang.org/api v0.19.0 // indirect
+	github.com/salrashid123/oauth2 v0.0.0-20200306182411-2f0ea7dcf344 // indirect
+	google.golang.org/api v0.20.0 // indirect
 )

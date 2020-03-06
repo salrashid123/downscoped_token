@@ -56,9 +56,8 @@ As an example, the following would the token to just `objectViewer` on `BUCKET_2
 
 ### Exchange the token
 
-You now need to transmit the original `access_token` and the boundary rule to a google token-exchange endpoint: `https://securetoken.googleapis.com/v1alpha2/identitybindingtoken`.  The response JSON will return a new token if the policy file is well formed.  
+You now need to transmit the original `access_token` and the boundary rule to a google token-exchange endpoint: `https://securetoken.googleapis.com/v2beta1/token`.  The response JSON will return a new token if the policy file is well formed.  
 
->> Note, the endpoint for the exchange will later change to ` https://securetoken.googleapis.com/v2beta1/token`
 
 ### Usage: curl
 
@@ -102,7 +101,7 @@ export TOKEN=`gcloud auth application-default print-access-token`
 (the following command uses [jq](https://stedolan.github.io/jq/download/) to parse the response):
 
 ```bash
-NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v1alpha2/identitybindingtoken -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "access_boundary=$(cat access_boundary_1.json)" | jq -r '.access_token'`
+NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v2beta1/token -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "access_boundary=$(cat access_boundary_1.json)" | jq -r '.access_token'`
 ```
 
 5. Use downscoped token
