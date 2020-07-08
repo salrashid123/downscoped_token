@@ -4,7 +4,7 @@
 
 For example, if the parent Credential that represents user Alice has Read/Write access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used for Read against Bucket `A` and `C`.
 
->> **Warning**:  `(2/24/20)`: The following describes the _alpha_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is open but not documented yet.  This article is intended to demonstrate this new capability and solicit feedback on enhancements users would like to see (for that, please just leave an issue/FR on github [here](https://github.com/salrashid123/downscoped_token) )
+>> **Warning**:  `(6/8/20)`: The following describes the _beta_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is documented officially at [Downscoping with Credential Access Boundaries](https://cloud.google.com/iam/docs/downscoping-short-lived-credentials)
 
 DownScoped tokens are normally used in a tokenbroker/exchange service where you can mint a new restricted token to hand to a client. The sample usage and implementations below shows how to generate a downscoped token, extract the raw access_token, and
  then inject the raw token in another TokenSource.
