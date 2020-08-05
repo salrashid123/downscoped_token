@@ -2,107 +2,79 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"log"
+	"os"
 
 	"cloud.google.com/go/storage"
 	sal "github.com/salrashid123/oauth2/google"
-	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
-const (
-	serviceAccountFile = "/path/to/svc_account.json"
-)
-
 var (
-	projectID  = "yourproject"
-	bucketName = "yourbucket"
-	folder     = ""
+	projectID  = "your-project"
+	bucketName = "your-bucket"
 )
 
 func main() {
 
 	ctx := context.Background()
 
-	// rootTokenSource, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	data, err := ioutil.ReadFile(serviceAccountFile)
+	rootTokenSource, err := google.DefaultTokenSource(ctx,
+		"https://www.googleapis.com/auth/iam")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	creds, err := google.CredentialsFromJSON(ctx, data, "https://www.googleapis.com/auth/cloud-platform")
-	if err != nil {
-		log.Fatal(err)
-	}
-	rootTokenSource := creds.TokenSource
 
 	downScopedTokenSource, err := sal.DownScopedTokenSource(
 		&sal.DownScopedTokenConfig{
 			RootTokenSource: rootTokenSource,
-			AccessBoundaryRules: []sal.AccessBoundaryRule{
-				sal.AccessBoundaryRule{
-					AvailableResource: "//storage.googleapis.com/projects/_/buckets/" + bucketName,
-					AvailablePermissions: []string{
-						"inRole:roles/storage.objectViewer",
+			DownscopedOptions: sal.DownscopedOptions{
+				AccessBoundary: sal.AccessBoundary{
+					AccessBoundaryRules: []sal.AccessBoundaryRule{
+						sal.AccessBoundaryRule{
+							AvailableResource: "//storage.googleapis.com/projects/_/buckets/" + bucketName,
+							AvailablePermissions: []string{
+								"inRole:roles/storage.objectViewer",
+							},
+							AvailabilityCondition: sal.AvailabilityCondition{
+								Title:      "obj-prefixes",
+								Expression: "resource.name.startsWith(\"projects/_/buckets/srashid-1/objects/foo.txt\")",
+							},
+						},
 					},
 				},
 			},
 		},
 	)
 
-	// Normally, you give the token back directly to a client to use
-	// In the following tok.AccessToken is applied to a non-refreshable StaticTokenSource
-	// which can be used with the storageClient
-	//
-	// tok, err := downScopedTokenSource.Token()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Printf("Downscoped Token: %v\n", tok.AccessToken)
-	// sts := oauth2.StaticTokenSource(tok)
+	// You can use the downscopeToken in the storage client below...but realistically,
+	// you would generate a rootToken, downscope it and then provide the new token to another client
+	// to use...similar to the bit below where the token itself is used to setup a StaticTokenSource
+	tok, err := downScopedTokenSource.Token()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// log.Println("Downscoped Token: %s", tok.AccessToken)
 
-	// To use directly in a client
+	sts := oauth2.StaticTokenSource(tok)
 
-	// client := &http.Client{
-	// 	Transport: &oauth2.Transport{
-	// 		Source: sts,
-	// 	},
-	// }
-
-	// url := fmt.Sprintf("https://storage.googleapis.com/storage/v1/b/%s/o", bucketName)
-	// resp, err := client.Get(url)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// log.Printf("Response: %v", resp.Status)
-
-	// or with google-cloud library
-
-	storageClient, err := storage.NewClient(ctx, option.WithTokenSource(downScopedTokenSource))
+	storageClient, err := storage.NewClient(ctx, option.WithTokenSource(sts))
 	if err != nil {
 		log.Fatalf("Could not create storage Client: %v", err)
 	}
 
-	it := storageClient.Bucket(bucketName).Objects(ctx, &storage.Query{
-		Prefix: folder,
-	})
-	for {
-
-		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-		log.Println(attrs.Name)
+	bkt := storageClient.Bucket(bucketName)
+	obj := bkt.Object("foo.txt")
+	r, err := obj.NewReader(ctx)
+	if err != nil {
+		panic(err)
 	}
-
+	defer r.Close()
+	if _, err := io.Copy(os.Stdout, r); err != nil {
+		panic(err)
+	}
 }

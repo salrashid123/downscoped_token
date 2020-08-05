@@ -57,6 +57,7 @@ import com.google.api.client.util.GenericData;
 import com.google.auth.http.HttpTransportFactory;
 import com.google.common.base.MoreObjects;
 import com.google.gson.Gson;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * DownScoped credentials allows for exchanging a parent Credential's
@@ -114,10 +115,52 @@ import com.google.gson.Gson;
 
 public class DownScopedCredentials extends GoogleCredentials {
 
+  public static class DownScopedOptions {
+    private AccessBoundary accessBoundary; 
+    public void setAccessBoundary(AccessBoundary ar) {
+      this.accessBoundary = ar;
+    }
+    public AccessBoundary getAccessBoundary() {
+      return this.accessBoundary;
+    }
+  }
+
+  public static class AccessBoundary {
+    private List<AccessBoundaryRule> accessBoundaryRules = new ArrayList<AccessBoundaryRule>();
+
+    public void setAccessBoundaryRules(AccessBoundaryRule ar) {
+      this.accessBoundaryRules.add(ar);
+    }
+    public List<AccessBoundaryRule> getAccessBoundaryRules() {
+      return this.accessBoundaryRules;
+    }
+  }  
+
+  public static class AvailabilityCondition {
+    private String title;
+    private String expression;
+
+    public void setTitle(String ar) {
+      this.title = ar;
+    }
+    public void setExpression(String ar) {
+      this.expression = ar;
+    }
+
+    public String getTitle() {
+      return this.title;
+    }
+
+    public String getExpression() {
+      return this.expression;
+    }
+  }
+
   public static class AccessBoundaryRule {
 
     private String availableResource;
     private List<String> availablePermissions = new ArrayList<String>();
+    private AvailabilityCondition availabilityCondition = new AvailabilityCondition();
 
     public void setAvailableResource(String ar) {
       this.availableResource = ar;
@@ -127,6 +170,10 @@ public class DownScopedCredentials extends GoogleCredentials {
       this.availablePermissions.add(ar);
     }
 
+    public void setAvailabilityCondition(AvailabilityCondition ar) {
+      this.availabilityCondition = ar;
+    }    
+
     public String getAvailableResource() {
       return this.availableResource;
     }
@@ -134,34 +181,40 @@ public class DownScopedCredentials extends GoogleCredentials {
     public List<String> getAvailablePermissions() {
       return this.availablePermissions;
     }
+
+    public AvailabilityCondition getAvailabilityCondition() {
+      return this.availabilityCondition;
+    }
+
   }
 
   private static final long serialVersionUID = -2133257318957488431L;
   private static final String CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform";
-  private static final String IDENTITY_TOKEN_ENDPOINT = "https://securetoken.googleapis.com/v2beta1/token";
-
+  private static final String IDENTITY_TOKEN_ENDPOINT = "https://sts.googleapis.com/v1beta/token";
+  
   private static final String TOKEN_INFO_ENDPOINT = "https://www.googleapis.com/oauth2/v3/tokeninfo";
 
   private GoogleCredentials sourceCredentials;
+  private DownScopedOptions downScopedOptions; 
   private List<AccessBoundaryRule> accessBoundaryRules;
   private final String transportFactoryClassName;
   private transient HttpTransportFactory transportFactory;
 
   public static DownScopedCredentials create(GoogleCredentials sourceCredentials,
-      List<AccessBoundaryRule> accessBoundaryRules) {
+          DownScopedOptions downScopedOptions) {
     return DownScopedCredentials.newBuilder().setSourceCredentials(sourceCredentials)
-        .setAccessBoundaryRules(accessBoundaryRules).build();
+        .setDownScopedOptions(downScopedOptions).build();
   }
 
   public static DownScopedCredentials create(GoogleCredentials sourceCredentials,
-      List<AccessBoundaryRule> accessBoundaryRules, HttpTransportFactory transportFactory) {
+          DownScopedOptions downscopedOptions, HttpTransportFactory transportFactory) {
     return DownScopedCredentials.newBuilder().setSourceCredentials(sourceCredentials)
-        .setAccessBoundaryRules(accessBoundaryRules).setHttpTransportFactory(transportFactory).build();
+        .setDownScopedOptions(downscopedOptions).setHttpTransportFactory(transportFactory).build();
   }
 
   private DownScopedCredentials(Builder builder) {
     this.sourceCredentials = builder.getSourceCredentials();
-    this.accessBoundaryRules = builder.getAccessBoundaryRules();
+    this.downScopedOptions = builder.getDownScopedOptions();
     this.transportFactory = firstNonNull(builder.getHttpTransportFactory(),
         getFromServiceLoader(HttpTransportFactory.class, OAuth2Utils.HTTP_TRANSPORT_FACTORY));
     this.transportFactoryClassName = this.transportFactory.getClass().getName();
@@ -188,24 +241,20 @@ public class DownScopedCredentials extends GoogleCredentials {
     HttpRequestFactory requestFactory = httpTransport.createRequestFactory();
     GenericUrl url = new GenericUrl(IDENTITY_TOKEN_ENDPOINT);
 
-    Map<String, List<DownScopedCredentials.AccessBoundaryRule>> r = new HashMap<String, List<DownScopedCredentials.AccessBoundaryRule>>();
-    r.put("accessBoundaryRules", this.accessBoundaryRules);
-
     String jsonPayload;
     Gson gson = new Gson();
-    jsonPayload = gson.toJson(r);
+    jsonPayload = gson.toJson(this.downScopedOptions);
 
     // ObjectMapper objectMapper = new ObjectMapper();
-    // jsonPayload = objectMapper.writeValueAsString(r);
-    // System.out.println("Using com.fasterxml.jackson.databind.ObjectMapper : " +
-    // jsonPayload);
+    // String xjsonPayload = objectMapper.writeValueAsString(this.downScopedOptions);
+    // System.out.println("Using com.fasterxml.jackson.databind.ObjectMapper : " +    xjsonPayload);
 
     Map<String, String> params = new HashMap<>();
     params.put("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange");
     params.put("subject_token_type", "urn:ietf:params:oauth:token-type:access_token");
     params.put("requested_token_type", "urn:ietf:params:oauth:token-type:access_token");
     params.put("subject_token", tok.getTokenValue());
-    params.put("access_boundary", jsonPayload);
+    params.put("options", jsonPayload);
     HttpContent content = new UrlEncodedContent(params);
 
     HttpRequest request = requestFactory.buildPostRequest(url, content);
@@ -261,7 +310,7 @@ public class DownScopedCredentials extends GoogleCredentials {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this).add("sourceCredentials", sourceCredentials)
-        .add("accessBoundaryRules", accessBoundaryRules).add("transportFactoryClassName", transportFactoryClassName)
+        .add("downScopedOptions", downScopedOptions).add("transportFactoryClassName", transportFactoryClassName)
         .toString();
   }
 
@@ -272,12 +321,12 @@ public class DownScopedCredentials extends GoogleCredentials {
     }
     DownScopedCredentials other = (DownScopedCredentials) obj;
     return Objects.equals(this.sourceCredentials, other.sourceCredentials)
-        && Objects.equals(this.accessBoundaryRules, other.accessBoundaryRules)
+        && Objects.equals(this.downScopedOptions, other.downScopedOptions)
         && Objects.equals(this.transportFactoryClassName, other.transportFactoryClassName);
   }
 
   public Builder toBuilder() {
-    return new Builder(this.sourceCredentials, this.accessBoundaryRules);
+    return new Builder(this.sourceCredentials, this.downScopedOptions);
   }
 
   public static Builder newBuilder() {
@@ -287,15 +336,15 @@ public class DownScopedCredentials extends GoogleCredentials {
   public static class Builder extends GoogleCredentials.Builder {
 
     private GoogleCredentials sourceCredentials;
-    private List<AccessBoundaryRule> accessBoundaryRules;
+    private DownScopedOptions downScopedOptions;
     private HttpTransportFactory transportFactory;
 
     protected Builder() {
     }
 
-    protected Builder(GoogleCredentials sourceCredentials, List<AccessBoundaryRule> accessBoundaryRules) {
+    protected Builder(GoogleCredentials sourceCredentials,  DownScopedOptions downScopedOptions) {
       this.sourceCredentials = sourceCredentials;
-      this.accessBoundaryRules = accessBoundaryRules;
+      this.downScopedOptions = downScopedOptions;
     }
 
     public Builder setSourceCredentials(GoogleCredentials sourceCredentials) {
@@ -307,13 +356,13 @@ public class DownScopedCredentials extends GoogleCredentials {
       return this.sourceCredentials;
     }
 
-    public Builder setAccessBoundaryRules(List<AccessBoundaryRule> accessBoundaryRules) {
-      this.accessBoundaryRules = accessBoundaryRules;
+    public Builder setDownScopedOptions(DownScopedOptions downScopedOption) {
+      this.downScopedOptions = downScopedOption;
       return this;
     }
 
-    public List<AccessBoundaryRule> getAccessBoundaryRules() {
-      return this.accessBoundaryRules;
+    public DownScopedOptions getDownScopedOptions() {
+      return this.downScopedOptions;
     }
 
     public Builder setHttpTransportFactory(HttpTransportFactory transportFactory) {

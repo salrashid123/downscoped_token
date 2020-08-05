@@ -9,6 +9,7 @@ import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.DownScopedCredentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.auth.oauth2.DownScopedCredentials.DownScopedOptions;
 import com.google.cloud.ServiceOptions;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
@@ -26,31 +27,40 @@ public class TestApp {
      public TestApp() throws Exception {
           try {
 
-               String bucketName = "mineral-minutia-820-bucket";
-               String keyFile = "/home/srashid/gcp_misc/certs/mineral-minutia-820-83b3ce7dcddb.json";
+               String bucketName = "your-bucket";
+               String keyFile = "/path/to/svc_account.json";
 
                String projectId = ServiceOptions.getDefaultProjectId();
                System.out.println(projectId);
 
                GoogleCredentials sourceCredentials;
 
-               File credentialsPath = new File(keyFile);
-               try (FileInputStream serviceAccountStream = new FileInputStream(credentialsPath)) {
-                    sourceCredentials = ServiceAccountCredentials.fromStream(serviceAccountStream);
-               }
-               if (sourceCredentials.createScopedRequired())
-                    sourceCredentials = sourceCredentials
-                              .createScoped("https://www.googleapis.com/auth/cloud-platform");
+               // File credentialsPath = new File(keyFile);
+               // try (FileInputStream serviceAccountStream = new FileInputStream(credentialsPath)) {
+               //      sourceCredentials = ServiceAccountCredentials.fromStream(serviceAccountStream);
+               // }
+               // if (sourceCredentials.createScopedRequired())
+               //      sourceCredentials = sourceCredentials
+               //                .createScoped("https://www.googleapis.com/auth/cloud-platform");
 
-               // sourceCredentials = GoogleCredentials.getApplicationDefault();
+               sourceCredentials = GoogleCredentials.getApplicationDefault();
 
-               List<DownScopedCredentials.AccessBoundaryRule> alist = new ArrayList<DownScopedCredentials.AccessBoundaryRule>();
-               DownScopedCredentials.AccessBoundaryRule ab = new DownScopedCredentials.AccessBoundaryRule();
-               ab.setAvailableResource("//storage.googleapis.com/projects/_/buckets/" + bucketName);
-               ab.addAvailablePermission("inRole:roles/storage.objectViewer");
-               alist.add(ab);
+               DownScopedCredentials.AvailabilityCondition ap = new DownScopedCredentials.AvailabilityCondition();
+               ap.setTitle("obj");
+               ap.setExpression("resource.name.startsWith(\"projects/_/buckets/srashid-1/objects/foo.txt\")");
 
-               DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
+               DownScopedCredentials.AccessBoundaryRule abr = new DownScopedCredentials.AccessBoundaryRule();
+               abr.setAvailableResource("//storage.googleapis.com/projects/_/buckets/" + bucketName);
+               abr.addAvailablePermission("inRole:roles/storage.objectViewer");
+               abr.setAvailabilityCondition(ap);
+
+               DownScopedCredentials.AccessBoundary ab = new DownScopedCredentials.AccessBoundary();
+               ab.setAccessBoundaryRules(abr);
+
+               DownScopedOptions dopt = new DownScopedOptions();
+               dopt.setAccessBoundary(ab);
+   
+               DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, dopt);
 
                // Normally, you give the token back directly to a client to use
                // In the following, the AccessToken's value is used to generate a new
@@ -60,10 +70,11 @@ public class TestApp {
                // GoogleCredentials sts = GoogleCredentials.create(tok);
 
                Storage storage = StorageOptions.newBuilder().setCredentials(dc).build().getService();
-               Page<Blob> blobs = storage.list(bucketName);
-               for (Blob blob : blobs.iterateAll()) {
-                    System.out.println(blob.getName());
-               }
+               Blob blob = storage.get(bucketName, "foo.txt");
+               String fileContent = new String(blob.getContent());
+
+               System.out.println(fileContent);
+
 
           } catch (Exception ex) {
                System.out.println("Error:  " + ex.getMessage());

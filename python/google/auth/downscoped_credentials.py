@@ -60,7 +60,7 @@ from google.auth.credentials import AnonymousCredentials
 import google.auth.transport.requests
 import requests
 
-_STS_ENDPOINT = "https://securetoken.googleapis.com/v2beta1/token"
+_STS_ENDPOINT = "https://sts.googleapis.com/v1beta/token"
 
 _REFRESH_ERROR = "Unable to acquire downscoped credentials"
 
@@ -99,14 +99,20 @@ class Credentials(credentials.Credentials):
 
     Now use the source credentials to acquire a downscoped credential limited to a policy::
 
-        json_document = {
-            "accessBoundaryRules" : [
-            {
-                "availableResource" : "//storage.googleapis.com/projects/_/buckets/" + bucket_name,
-                "availablePermissions": ["inRole:roles/storage.objectViewer"]
+        downscoped_options = {
+            "accessBoundary" : {
+                "accessBoundaryRules" : [
+                    {
+                    "availableResource" : "//storage.googleapis.com/projects/_/buckets/" + bucket_name,
+                    "availablePermissions": ["inRole:roles/storage.objectViewer"],
+                    "availabilityCondition" : {
+                        "title" : "obj-prefixes",
+                        "expression" : "resource.name.startsWith(\"projects/_/buckets/" + bucket_name + "/objects/foo.txt\")"
+                    }
+                    }
+                ]
             }
-            ]
-        }
+            }
 
         dc = downscoped_credentials.Credentials(source_credentials=source_credentials,access_boundary_rules=json_document)
 
@@ -120,7 +126,7 @@ class Credentials(credentials.Credentials):
     def __init__(
         self,
         source_credentials,
-        access_boundary_rules={},
+        downscoped_options={},
     ):
         """
         Args:
@@ -132,7 +138,11 @@ class Credentials(credentials.Credentials):
                     "accessBoundaryRules" : [
                     {
                         "availableResource" : "//storage.googleapis.com/projects/_/buckets/bucketA",
-                        "availablePermissions": ["inRole:roles/storage.objectViewer"]
+                        "availablePermissions": ["inRole:roles/storage.objectViewer"],
+                        "availabilityCondition" : {
+                            "title" : "obj-prefixes",
+                            "expression" : "resource.name.startsWith(\"projects/_/buckets/bucketA/objects/foo.txt\")"
+                        }                        
                     }
                     ]
                 }
@@ -141,11 +151,11 @@ class Credentials(credentials.Credentials):
         super(Credentials, self).__init__()
 
         self._source_credentials = copy.copy(source_credentials)
-        if not access_boundary_rules.has_key('accessBoundaryRules'):
+        if not 'accessBoundary' in downscoped_options:
             raise exceptions.GoogleAuthError(
-                "Provided access_boundary_rules must include accessBoundaryRules dictionary key"
+                "Provided access_boundary_rules must include accessBoundary dictionary key"
             )
-        self._access_boundary_rules = access_boundary_rules
+        self._downscoped_options = downscoped_options
         self.token = None
         self.expiry = _helpers.utcnow()
 
@@ -179,7 +189,7 @@ class Credentials(credentials.Credentials):
             "subject_token_type": 'urn:ietf:params:oauth:token-type:access_token',
             "requested_token_type": 'urn:ietf:params:oauth:token-type:access_token',
             "subject_token": self._source_credentials.token,
-            "access_boundary": json.dumps(self._access_boundary_rules)
+            "options": json.dumps(self._downscoped_options)
         }
 
         resp = authed_session.post(_STS_ENDPOINT, data=body)
@@ -189,7 +199,7 @@ class Credentials(credentials.Credentials):
         data = resp.json()
         self.token = data['access_token']
 
-        if data.has_key('expires_in'):
+        if 'expires_in' in data:
             self.expiry = datetime.now() + \
                 timedelta(seconds=int(data['expires_in']))
         else:

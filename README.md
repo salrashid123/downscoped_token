@@ -2,7 +2,7 @@
 
 `Credential Access Boundary` is a policy language that you can use to downscope the accessing power of your GCP short-lived credentials. You can define a Credential Access Boundary that specifies which resources the short-lived credential can access, as well as an upper bound on the permissions that are available on each resource
 
-For example, if the parent Credential that represents user Alice has Read/Write access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used for Read against Bucket `A` and `C`.
+For example, if the parent Credential that represents user Alice has Read/Write access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used for Read against Bucket `A` and `C`.   You can also define an expression based on a partial resource path and prefix (eg, downscope a token with permissions on a specific object in GCS or a path within GCS) 
 
 >> **Warning**:  `(6/8/20)`: The following describes the _beta_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is documented officially at [Downscoping with Credential Access Boundaries](https://cloud.google.com/iam/docs/downscoping-short-lived-credentials)
 
@@ -26,7 +26,11 @@ The definition of a boundary rule is just json:
 	"accessBoundaryRules" : [
 	  {
 		"availableResource" : "string",
-		"availablePermissions": [list]
+		"availablePermissions": [list],
+    "availabilityCondition" : {
+        "title" : "string",
+        "expression" : "string"
+      }
 	  }
 	]
 }
@@ -41,18 +45,30 @@ This is the GCP resource (such as organization, folder, project, bucket, etc) to
 * `AvailablePermissions` (required)
 This is a list of permissions that may be allowed for use on the specified resource or resources below the specified resource. The only supported value is IAM role with syntax: "inRole:roles/storage.admin"
 
-As an example, the following would the token to just `objectViewer` on `BUCKET_2`:
+* `AvailabilityCondition` (optional)
+This describes additional fine-grained constraints to apply to the token.  The `expression` parameter describes the resource condition this rule applies to in [CEL Format](https://cloud.google.com/iam/docs/conditions-overview#cel). 
+
+As an example, the following would the token to just `objectViewer` on `BUCKET_2` and specifically an object (prefix) `/foo.txt`
 
 ```json
 {
-	"accessBoundaryRules" : [
-	  {
-		"availableResource" : "//storage.googleapis.com/projects/_/buckets/$BUCKET_2",
-		"availablePermissions": ["inRole:roles/storage.objectViewer"]
-	  }
-	]
+  "accessBoundary" : {
+      "accessBoundaryRules" : [
+        {
+          "availableResource" : "//storage.googleapis.com/projects/_/buckets/$BUCKET_2",
+          "availablePermissions": ["inRole:roles/storage.objectViewer"],
+          "availabilityCondition" : {
+            "title" : "obj-prefixes",
+            "expression" : "resource.name.startsWith(\"projects/_/buckets/$BUCKET_2/objects/foo.txt\")"
+          }
+        }
+      ]
+  }
 }
 ```
+
+* `AvailabilityConditions` (optional)
+This defines restrictions on the resource based on a condition such as the path or prefix within that path.  Use an `availabilityCondition` to define such things as a specific object this downscoped token could access or the path prefix the token has permissions on.
 
 ### Exchange the token
 
@@ -73,20 +89,29 @@ export BUCKET_2=$PROJECT_ID-1-suffix
 
 gsutil mb gs://$BUCKET_1
 gsutil mb gs://$BUCKET_2
+echo "foo" > someobject.txt
+gsutil cp someobject.txt gs://$BUCKET_2/
 ```
 
-2. Create policy to only allow `storage.objectViewer` to `BUCKET_2`
+2. Create policy to only allow `storage.objectViewer` to `BUCKET_2` AND on object `/foo.txt`
 
 ```
 cat <<EOF > access_boundary_2.json
 {
-	"accessBoundaryRules" : [
-	  {
-		"availableResource" : "//storage.googleapis.com/projects/_/buckets/$BUCKET_2",
-		"availablePermissions": ["inRole:roles/storage.objectViewer"]
-	  }
-	]
+  "accessBoundary" : {
+      "accessBoundaryRules" : [
+        {
+          "availableResource" : "//storage.googleapis.com/projects/_/buckets/$BUCKET_2",
+          "availablePermissions": ["inRole:roles/storage.objectViewer"],
+          "availabilityCondition" : {
+            "title" : "obj-prefixes",
+            "expression" : "resource.name.startsWith(\"projects/_/buckets/$BUCKET_2/objects/foo.txt\")"
+          }
+        }
+      ]
+  }
 }
+
 EOF
 ```
 
@@ -101,7 +126,7 @@ export TOKEN=`gcloud auth application-default print-access-token`
 (the following command uses [jq](https://stedolan.github.io/jq/download/) to parse the response):
 
 ```bash
-NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v2beta1/token -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "access_boundary=$(cat access_boundary_1.json)" | jq -r '.access_token'`
+NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://securetoken.googleapis.com/v2beta1/token -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "options=$(cat access_boundary_1.json)" | jq -r '.access_token'`
 ```
 
 5. Use downscoped token
@@ -176,11 +201,19 @@ func main() {
 	downScopedTokenSource, err := sal.DownScopedTokenSource(
 		&sal.DownScopedTokenConfig{
 			RootTokenSource: rootTokenSource,
-			AccessBoundaryRules: []sal.AccessBoundaryRule{
-				sal.AccessBoundaryRule{
-					AvailableResource: "//storage.googleapis.com/projects/_/buckets/" + bucketName,
-					AvailablePermissions: []string{
-						"inRole:roles/storage.objectViewer",
+			DownscopedOptions: sal.DownscopedOptions{
+				AccessBoundary: sal.AccessBoundary{
+					AccessBoundaryRules: []sal.AccessBoundaryRule{
+						sal.AccessBoundaryRule{
+							AvailableResource: "//storage.googleapis.com/projects/_/buckets/" + bucketName,
+							AvailablePermissions: []string{
+								"inRole:roles/storage.objectViewer",
+							},
+							AvailabilityCondition: sal.AvailabilityCondition{
+								Title:      "obj-prefixes",
+								Expression: "resource.name.startsWith(\"projects/_/buckets/your_bucket/objects/foo.txt\")",
+							},
+						},
 					},
 				},
 			},
@@ -242,18 +275,16 @@ func main() {
 
 see `java/src/main/java/com/google/auth/oauth2/DownScopedCredentials.java`
 
+
+
 ```java
 package com.test;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.util.ArrayList;
-import java.util.List;
 
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.DownScopedCredentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.auth.oauth2.DownScopedCredentials.DownScopedOptions;
 import com.google.cloud.ServiceOptions;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
@@ -271,7 +302,7 @@ public class TestApp {
      public TestApp() throws Exception {
           try {
 
-               String bucketName = "yourbucket";
+               String bucketName = "your_bucket";
                String keyFile = "/path/to/svc_account.json";
 
                String projectId = ServiceOptions.getDefaultProjectId();
@@ -279,23 +310,32 @@ public class TestApp {
 
                GoogleCredentials sourceCredentials;
 
-               File credentialsPath = new File(keyFile);
-               try (FileInputStream serviceAccountStream = new FileInputStream(credentialsPath)) {
-                    sourceCredentials = ServiceAccountCredentials.fromStream(serviceAccountStream);
-               }
-               if (sourceCredentials.createScopedRequired())
-                    sourceCredentials = sourceCredentials
-                              .createScoped("https://www.googleapis.com/auth/cloud-platform");
+               // File credentialsPath = new File(keyFile);
+               // try (FileInputStream serviceAccountStream = new FileInputStream(credentialsPath)) {
+               //      sourceCredentials = ServiceAccountCredentials.fromStream(serviceAccountStream);
+               // }
+               // if (sourceCredentials.createScopedRequired())
+               //      sourceCredentials = sourceCredentials
+               //                .createScoped("https://www.googleapis.com/auth/cloud-platform");
 
-               // sourceCredentials = GoogleCredentials.getApplicationDefault();
+               sourceCredentials = GoogleCredentials.getApplicationDefault();
 
-               List<DownScopedCredentials.AccessBoundaryRule> alist = new ArrayList<DownScopedCredentials.AccessBoundaryRule>();
-               DownScopedCredentials.AccessBoundaryRule ab = new DownScopedCredentials.AccessBoundaryRule();
-               ab.setAvailableResource("//storage.googleapis.com/projects/_/buckets/" + bucketName);
-               ab.addAvailablePermission("inRole:roles/storage.objectViewer");
-               alist.add(ab);
+               DownScopedCredentials.AvailabilityCondition ap = new DownScopedCredentials.AvailabilityCondition();
+               ap.setTitle("obj");
+               ap.setExpression("resource.name.startsWith(\"projects/_/buckets/" + bucketName + "/objects/foo.txt\")");
 
-               DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, alist);
+               DownScopedCredentials.AccessBoundaryRule abr = new DownScopedCredentials.AccessBoundaryRule();
+               abr.setAvailableResource("//storage.googleapis.com/projects/_/buckets/" + bucketName);
+               abr.addAvailablePermission("inRole:roles/storage.objectViewer");
+               abr.setAvailabilityCondition(ap);
+
+               DownScopedCredentials.AccessBoundary ab = new DownScopedCredentials.AccessBoundary();
+               ab.setAccessBoundaryRules(abr);
+
+               DownScopedOptions dopt = new DownScopedOptions();
+               dopt.setAccessBoundary(ab);
+   
+               DownScopedCredentials dc = DownScopedCredentials.create(sourceCredentials, dopt);
 
                // Normally, you give the token back directly to a client to use
                // In the following, the AccessToken's value is used to generate a new
@@ -305,10 +345,11 @@ public class TestApp {
                // GoogleCredentials sts = GoogleCredentials.create(tok);
 
                Storage storage = StorageOptions.newBuilder().setCredentials(dc).build().getService();
-               Page<Blob> blobs = storage.list(bucketName);
-               for (Blob blob : blobs.iterateAll()) {
-                    System.out.println(blob.getName());
-               }
+               Blob blob = storage.get(bucketName, "foo.txt");
+               String fileContent = new String(blob.getContent());
+
+               System.out.println(fileContent);
+
 
           } catch (Exception ex) {
                System.out.println("Error:  " + ex.getMessage());
@@ -322,6 +363,12 @@ public class TestApp {
 
 see `python/google/auth/downscoped_credentials.py`
 
+```
+virtualenv env
+source env/bin/activate
+pip install google-cloud-storage
+cp google/auth/downscoped_credentials.py env/lib/python3.7/site-packages/google/auth/
+```
 
 ```python
 import google.auth
@@ -341,25 +388,31 @@ source_credentials = (
         svcAccountFile,
         scopes=target_scopes))
 
-json_document = {
-	"accessBoundaryRules" : [
-	  {
-		"availableResource" : "//storage.googleapis.com/projects/_/buckets/" + bucket_name,
-		"availablePermissions": ["inRole:roles/storage.objectViewer"]
-	  }
-	]
+downscoped_options = {
+  "accessBoundary" : {
+      "accessBoundaryRules" : [
+        {
+          "availableResource" : "//storage.googleapis.com/projects/_/buckets/" + bucket_name,
+          "availablePermissions": ["inRole:roles/storage.objectViewer"],
+          "availabilityCondition" : {
+            "title" : "obj-prefixes",
+            "expression" : "resource.name.startsWith(\"projects/_/buckets/" + bucket_name + "/objects/foo.txt\")"
+          }
+        }
+      ]
+  }
 }
+
 
 # or use default credentials
 source_credentials, project_id = google.auth.default()
 
-dc = downscoped_credentials.Credentials(source_credentials=source_credentials,access_boundary_rules=json_document)
+dc = downscoped_credentials.Credentials(source_credentials=source_credentials,downscoped_options=downscoped_options)
 
 storage_client = storage.Client(credentials=dc)
-blobs = storage_client.list_blobs(bucket_name)
-
-for blob in blobs:
-  print(blob.name)
+bucket = storage_client.bucket(bucket_name)
+blob = bucket.blob("foo.txt")
+print(blob.download_as_string())
 ```
 
 
