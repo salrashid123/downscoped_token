@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"cloud.google.com/go/storage"
-	sal "github.com/salrashid123/oauth2/google"
+	sal "github.com/salrashid123/oauth2/downscoped"
 	"google.golang.org/api/option"
 
 	"golang.org/x/oauth2"
