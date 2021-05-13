@@ -40,7 +40,7 @@ func main() {
 							AvailablePermissions: []string{
 								"inRole:roles/storage.objectViewer",
 							},
-							AvailabilityCondition: sal.AvailabilityCondition{
+							AvailabilityCondition: &sal.AvailabilityCondition{
 								Title:      "obj-prefixes",
 								Expression: "resource.name.startsWith(\"projects/_/buckets/srashid-1/objects/foo.txt\")",
 							},
