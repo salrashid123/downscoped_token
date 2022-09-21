@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -42,7 +43,7 @@ func main() {
 							},
 							AvailabilityCondition: &sal.AvailabilityCondition{
 								Title:      "obj-prefixes",
-								Expression: "resource.name.startsWith(\"projects/_/buckets/srashid-1/objects/foo.txt\")",
+								Expression: fmt.Sprintf("resource.name.startsWith(\"projects/_/buckets/%s/objects/foo.txt\")", bucketName),
 							},
 						},
 					},

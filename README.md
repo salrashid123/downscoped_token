@@ -23,16 +23,18 @@ The definition of a boundary rule is just json:
 
 ```json
 {
-	"accessBoundaryRules" : [
-	  {
-		"availableResource" : "string",
-		"availablePermissions": [list],
-    "availabilityCondition" : {
-        "title" : "string",
-        "expression" : "string"
+  "accessBoundaryRules": [
+    {
+      "availableResource": "string",
+      "availablePermissions": [
+        "list"
+      ],
+      "availabilityCondition": {
+        "title": "string",
+        "expression": "string"
       }
-	  }
-	]
+    }
+  ]
 }
 ```
 

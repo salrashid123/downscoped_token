@@ -27,7 +27,7 @@ public class TestApp {
      public TestApp() throws Exception {
           try {
 
-               String bucketName = "your-bucket";
+               String bucketName = "yourbucket";
                String keyFile = "/path/to/svc_account.json";
 
                String projectId = ServiceOptions.getDefaultProjectId();
@@ -47,7 +47,7 @@ public class TestApp {
 
                DownScopedCredentials.AvailabilityCondition ap = new DownScopedCredentials.AvailabilityCondition();
                ap.setTitle("obj");
-               ap.setExpression("resource.name.startsWith(\"projects/_/buckets/srashid-1/objects/foo.txt\")");
+               ap.setExpression("resource.name.startsWith(\"projects/_/buckets/" + bucketName + "/objects/foo.txt\")");
 
                DownScopedCredentials.AccessBoundaryRule abr = new DownScopedCredentials.AccessBoundaryRule();
                abr.setAvailableResource("//storage.googleapis.com/projects/_/buckets/" + bucketName);
