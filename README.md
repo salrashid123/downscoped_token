@@ -4,7 +4,6 @@
 
 For example, if the parent Credential that represents user Alice has Read/Write access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used for Read against Bucket `A` and `C`.   You can also define an expression based on a partial resource path and prefix (eg, downscope a token with permissions on a specific object in GCS or a path within GCS) 
 
->> **Warning**:  `(6/8/20)`: The following describes the _beta_ release of `Credential Access Boundary (DownScoped) Tokens` on Google Cloud.  This API is documented officially at [Downscoping with Credential Access Boundaries](https://cloud.google.com/iam/docs/downscoping-short-lived-credentials)
 
 DownScoped tokens are normally used in a tokenbroker/exchange service where you can mint a new restricted token to hand to a client. The sample usage and implementations below shows how to generate a downscoped token, extract the raw access_token, and
  then inject the raw token in another TokenSource.
@@ -14,6 +13,10 @@ DownScoped tokens are normally used in a tokenbroker/exchange service where you 
 * DownScoped tokens currently only works for GCS buckets and cannot be applied yet at the bucket+prefix or object level.
 * The GCS bucket must be enabled with [Uniform bucket-level access](https://cloud.google.com/storage/docs/uniform-bucket-level-access
 * Supported credentials: The only supported type of credential in Credential Access Boundary is OAuth2.0 access token.
+
+
+>> >>> **IMPORTANT**  If you are just looking for code samples that generate downscoped tokens, just use the official samples here [https://cloud.google.com/iam/docs/downscoping-short-lived-credentials#exchange-credential-auto](https://cloud.google.com/iam/docs/downscoping-short-lived-credentials#exchange-credential-auto)
+
 
 ### Defining a boundary rule:
 
@@ -143,6 +146,9 @@ curl -s -H "Authorization: Bearer $NEW_TOKEN_1"  -o /dev/null  -w "%{http_code}\
 ```
 
 ### Implementations
+
+
+>>> **IMPORTANT**  Just use the official samples here [https://cloud.google.com/iam/docs/downscoping-short-lived-credentials#exchange-credential-auto](https://cloud.google.com/iam/docs/downscoping-short-lived-credentials#exchange-credential-auto)
 
 At the moment, no official `google-auth-*` library supports this capability.  However, i've written up the implementations in the following languages which behave as if its just another credential type for any google cloud client libraries (well..just GCS at the moment).
 
