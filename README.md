@@ -98,7 +98,7 @@ echo "foo" > someobject.txt
 gsutil cp someobject.txt gs://$BUCKET_2/
 ```
 
-2. Create policy to only allow `storage.objectViewer` to `BUCKET_2` AND on object `/foo.txt`
+2. Create policy to only allow `storage.objectViewer` to `BUCKET_2` AND on object `/someobject.txt`
 
 ```
 cat <<EOF > access_boundary_2.json
@@ -110,7 +110,7 @@ cat <<EOF > access_boundary_2.json
           "availablePermissions": ["inRole:roles/storage.objectViewer"],
           "availabilityCondition" : {
             "title" : "obj-prefixes",
-            "expression" : "resource.name.startsWith(\"projects/_/buckets/$BUCKET_2/objects/foo.txt\")"
+            "expression" : "resource.name.startsWith(\"projects/_/buckets/$BUCKET_2/objects/someobject.txt\")"
           }
         }
       ]
@@ -131,7 +131,7 @@ export TOKEN=`gcloud auth application-default print-access-token`
 (the following command uses [jq](https://stedolan.github.io/jq/download/) to parse the response):
 
 ```bash
-NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://sts.googleapis.com/v1/token -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "options=$(cat access_boundary_1.json)" | jq -r '.access_token'`
+NEW_TOKEN_1=`curl -s -H "Content-Type:application/x-www-form-urlencoded" -X POST https://sts.googleapis.com/v1/token -d 'grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token_type=urn:ietf:params:oauth:token-type:access_token&requested_token_type=urn:ietf:params:oauth:token-type:access_token&subject_token='$TOKEN --data-urlencode "options=$(cat access_boundary_2.json)" | jq -r '.access_token'`
 ```
 
 5. Use downscoped token
