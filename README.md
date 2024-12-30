@@ -5,15 +5,19 @@
 For example, if the parent Credential that represents user Alice has Read/Write access to GCS buckets `A`, `B`, `C`, you can exchange the Alice's credential for another credential that still identifies Alice but can only be used for Read against Bucket `A` and `C`.   You can also define an expression based on a partial resource path and prefix (eg, downscope a token with permissions on a specific object in GCS or a path within GCS) 
 
 
-DownScoped tokens are normally used in a tokenbroker/exchange service where you can mint a new restricted token to hand to a client. The sample usage and implementations below shows how to generate a downscoped token, extract the raw access_token, and
- then inject the raw token in another TokenSource.
+DownScoped tokens are normally used in a tokenbroker/exchange service where you can mint a new restricted token to hand to a client. The sample usage and implementations below shows how to generate a downscoped token, extract the raw access_token, and then inject the raw token in another TokenSource.
 
 ** NOTE:**
 
-* DownScoped tokens currently only works for GCS buckets and cannot be applied yet at the bucket+prefix or object level.
+* DownScoped tokens currently only works for certain resources like GCS, GCE and Cloud Resource Manager objects like Projects, Folders and Organizations.
 * The GCS bucket must be enabled with [Uniform bucket-level access](https://cloud.google.com/storage/docs/uniform-bucket-level-access
-* Supported credentials: The only supported type of credential in Credential Access Boundary is OAuth2.0 access token.
 
+
+>>> Important, before you go down the road of using downscoped token and token brokers, consider the usecase you're after and if [Privileged Access Manager](https://cloud.google.com/iam/docs/temporary-elevated-access)
+
+also see 
+
+* [Vault Secrets for GCP Credential Access Boundary and Impersonation](https://github.com/salrashid123/vault-plugin-secrets-gcp-cab)
 
 >> >>> **IMPORTANT**  If you are just looking for code samples that generate downscoped tokens, just use the official samples here [https://cloud.google.com/iam/docs/downscoping-short-lived-credentials#exchange-credential-auto](https://cloud.google.com/iam/docs/downscoping-short-lived-credentials#exchange-credential-auto)
 
@@ -100,7 +104,7 @@ gsutil cp someobject.txt gs://$BUCKET_2/
 
 2. Create policy to only allow `storage.objectViewer` to `BUCKET_2` AND on object `/someobject.txt`
 
-```
+```bash
 cat <<EOF > access_boundary_2.json
 {
   "accessBoundary" : {
