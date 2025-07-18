@@ -1,12 +1,13 @@
 module main
 
-go 1.22.4
+go 1.23.0
+
 toolchain go1.24.1
 
 require (
 	cloud.google.com/go/resourcemanager v1.10.2
 	cloud.google.com/go/storage v1.49.0
-	golang.org/x/oauth2 v0.24.0
+	golang.org/x/oauth2 v0.27.0
 	google.golang.org/api v0.214.0
 )
 
